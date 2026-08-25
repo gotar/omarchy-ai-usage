@@ -778,9 +778,18 @@ Panel {
                   required property var modelData
                   width: parent.width
                   spacing: Style.space(4)
-                  MetricRow { visible: !!modelData; width: parent.width; row: modelData ? { label: modelData.label, percent: modelData.percent, value: Math.round(modelData.percent) + "%", detail: modelData.detail, reset_at: modelData.reset_at, severity: modelData.percent >= 90 ? "critical" : modelData.percent >= 75 ? "high" : "low" } : null }
+                  MetricRow { visible: !!modelData; width: parent.width; row: modelData ? { label: modelData.label, percent: modelData.percent, value: Math.round(modelData.percent) + "%", detail: "", reset_at: modelData.reset_at, severity: modelData.percent >= 90 ? "critical" : modelData.percent >= 75 ? "high" : "low" } : null }
                   Text { visible: !!modelData; width: parent.width; text: modelData ? formatReset(modelData.reset_at, root.nowMs) : ""; color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
-                  Text { visible: !!modelData; width: parent.width; text: modelData ? Math.round(modelData.percent) + "% used · " + (100 - Math.round(modelData.percent)) + "% left" + (modelData.detail !== "" ? " · " + autoSafe(modelData.detail) : "") : ""; color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap }
+                  Text {
+                    visible: !!modelData
+                    width: parent.width
+                    color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap
+                    text: {
+                      if (!modelData) return ""
+                      var d = String(modelData.detail || "").replace(/^Resets in [^·]* · /, "")
+                      return Math.round(modelData.percent) + "% used · " + (100 - Math.round(modelData.percent)) + "% left" + (d !== "" ? " · " + autoSafe(d) : "")
+                    }
+                  }
                 }
               }
               Text {
