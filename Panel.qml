@@ -104,6 +104,7 @@ Panel {
   }
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
+  function scriptPath(p) { return String(Qt.resolvedUrl(p)).replace("file://", "") }
   function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
   function cleanText(v, maxLen) {
     var t = v === undefined || v === null ? "" : String(v)
@@ -228,7 +229,7 @@ Panel {
   function refreshQwenStats() {
     if (qwenStatsProcess.running || !serviceState || !serviceState.active) return
     qwenStatsBusy = true
-    qwenStatsProcess.command = ["/bin/bash", Qt.resolvedUrl("scripts/qwen-stats.sh"), localHost]
+    qwenStatsProcess.command = ["/bin/bash", scriptPath("scripts/qwen-stats.sh"), localHost]
     qwenStatsProcess.running = true
   }
   function parseQwenStats(text) {
@@ -305,10 +306,15 @@ Panel {
         if (String(e.id) === "openai" || String(e.id).indexOf("openai") === 0) {
           var secs = Array.isArray(e.sections) ? e.sections : []
           var mlist = []
-          var msrc = Array.isArray(e.metrics) && e.metrics.length > 0 ? e.metrics : secs
+          var msrc = []
+          if (Array.isArray(e.metrics) && e.metrics.length > 0) {
+            msrc = e.metrics
+          } else {
+            for (var f = 0; f < secs.length; f++) if (secs[f] && secs[f].type === "metric") msrc.push(secs[f])
+          }
           for (var s = 0; s < msrc.length; s++) {
             var sec = msrc[s]
-            if (sec && sec.type === "metric" && isFinite(Number(sec.percent))) {
+            if (sec && isFinite(Number(sec.percent))) {
               mlist.push({
                 percent: Number(sec.percent) || 0,
                 label: String(sec.label || "Codex window"),
@@ -516,7 +522,7 @@ Panel {
   Process {
     id: walletProcess
     running: false
-    command: ["/bin/bash", Qt.resolvedUrl("scripts/opencode-balance.sh"), root.opencodeWorkspaceId]
+    command: ["/bin/bash", scriptPath("scripts/opencode-balance.sh"), root.opencodeWorkspaceId]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: Qt.callLater(function(){ root.parseWallet(text) }) }
     stderr: StdioCollector { waitForEnd: true; onStreamFinished: root.walletStderr = text }
     onExited: function(c){ root.walletBusy = false; if (root.refreshQueued) Qt.callLater(root.startRefresh) }
