@@ -1,5 +1,7 @@
 # AI Usage — Omarchy bar widget
 
+![AI Usage panel screenshot](screenshot.png)
+
 Omarchy (Quickshell) bar widget that shows AI provider usage in one panel:
 
 - **OpenCode Go** — rolling / weekly / monthly windows (direct JSON endpoint or `ai-usagebar` fallback)
