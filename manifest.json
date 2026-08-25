@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "gotar.ai-usage",
+  "name": "AI Usage",
+  "version": "1.3.0",
+  "author": "gotar",
+  "license": "MIT",
+  "description": "Opencode Go, Codex/OpenAI (5h session + weekly windows side by side) and Local Qwen 3.8 with live tokens/sec, ctx usage & draft stats — with wallet balance (Zen credits) via a dedicated headless Chromium profile.",
+  "kinds": ["bar-widget"],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "AI Usage",
+    "description": "One-screen Opencode Go, Codex and Local Qwen usage with bars, remaining %, wallet balance via Chromium CDP, and a start/stop switch for the local model.",
+    "category": "AI",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "opencodeApiKey": "",
+      "opencodeEndpoint": "https://opencode.ai/zen/go/v1/usage",
+      "opencodeWorkspaceId": "",
+      "opencodeBalanceTtlSec": 600,
+      "refreshIntervalSec": 300,
+      "showValue": true,
+      "localUnit": "llama-cpp-server.service",
+      "localHost": "127.0.0.1:8080"
+    },
+    "schema": [
+      {
+        "key": "opencodeApiKey",
+        "type": "string",
+        "label": "Opencode Go API key",
+        "description": "Paste your Opencode Go API key. Stored in shell.json. Leave blank to use ai-usagebar's opencode-go entry as fallback.",
+        "defaultValue": ""
+      },
+      {
+        "key": "opencodeEndpoint",
+        "type": "string",
+        "label": "Opencode Go endpoint (JSON)",
+        "description": "JSON usage endpoint. Default is https://opencode.ai/zen/go/v1/usage",
+        "defaultValue": "https://opencode.ai/zen/go/v1/usage"
+      },
+      {
+        "key": "opencodeWorkspaceId",
+        "type": "string",
+        "label": "Opencode workspace ID (wallet)",
+        "description": "Workspace ID for the wallet fetch. Used as https://opencode.ai/workspace/<id>/billing. Uses a dedicated headless Chromium profile — run scripts/opencode-balance.sh --login once to sign in.",
+        "defaultValue": ""
+      },
+      {
+        "key": "opencodeBalanceTtlSec",
+        "type": "integer",
+        "label": "Wallet cache TTL (seconds)",
+        "description": "Cache for wallet fetch; browser tab is only opened after TTL expires. Default 600s.",
+        "min": 60,
+        "max": 86400,
+        "step": 60,
+        "defaultValue": 600
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 30,
+        "max": 3600,
+        "step": 30,
+        "defaultValue": 300
+      },
+      {
+        "key": "showValue",
+        "type": "boolean",
+        "label": "Show usage value in bar",
+        "description": "Show percentages next to the icon in the top bar.",
+        "defaultValue": true
+      },
+      {
+        "key": "localUnit",
+        "type": "string",
+        "label": "Local model systemd unit",
+        "description": "systemd --user unit for llama.cpp server. Default llama-cpp-server.service",
+        "defaultValue": "llama-cpp-server.service"
+      },
+      {
+        "key": "localHost",
+        "type": "string",
+        "label": "Local model host",
+        "description": "Host:port for the llama.cpp server (display only).",
+        "defaultValue": "127.0.0.1:8080"
+      }
+    ]
+  }
+}
