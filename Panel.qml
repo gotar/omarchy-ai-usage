@@ -240,7 +240,7 @@ Panel {
     try {
       var v = JSON.parse(String(text || ""))
       if (!v || typeof v !== "object") { if (walletStderr.trim() !== "") walletError = walletStderr.trim().slice(0, 200); return }
-      if (v.error) { walletInfo = null; walletError = String(v.error) + (v.hint ? " · " + v.hint : ""); if (walletStderr.trim() !== "" && walletError === String(v.error)) walletError = walletStderr.trim().slice(0, 200); return }
+      if (v.error) { var wmsg = String(v.error) + (v.hint ? " · " + v.hint : ""); if (walletInfo) walletError = "refresh failed · " + wmsg; else { walletError = wmsg; if (walletStderr.trim() !== "" && walletError === String(v.error)) walletError = walletStderr.trim().slice(0, 200) } return }
       if (v.amount === undefined) return
       walletInfo = { balance: String(v.balance || ("$" + Number(v.amount).toFixed(2))), amount: Number(v.amount) || 0, fetchedAt: String(v.fetchedAt || ""), cached: v.cached === true }
       walletError = ""; walletStderr = ""
@@ -522,7 +522,7 @@ Panel {
   Process {
     id: walletProcess
     running: false
-    command: ["/bin/bash", scriptPath("scripts/opencode-balance.sh"), root.opencodeWorkspaceId]
+    command: ["/bin/bash", scriptPath("scripts/opencode-balance.sh"), root.opencodeWorkspaceId, "--ttl", String(root.opencodeBalanceTtlSec)]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: Qt.callLater(function(){ root.parseWallet(text) }) }
     stderr: StdioCollector { waitForEnd: true; onStreamFinished: root.walletStderr = text }
     onExited: function(c){ root.walletBusy = false; if (root.refreshQueued) Qt.callLater(root.startRefresh) }
@@ -758,7 +758,7 @@ Panel {
                 width: parent.width; wrapMode: Text.WordWrap
                 color: walletError !== "" ? root.urgent : root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall
                 text: {
-                  if (walletInfo) return walletInfo.balance + " USD" + (walletInfo.cached ? " · cached" : "") + (walletInfo.fetchedAt ? " · " + formatUpdated(walletInfo.fetchedAt, root.nowMs) : "")
+                  if (walletInfo) return walletInfo.balance + " USD" + (walletInfo.cached ? " · cached" : "") + (walletInfo.fetchedAt ? " · " + formatUpdated(walletInfo.fetchedAt, root.nowMs) : "") + (walletError !== "" ? " · " + autoSafe(walletError) : "")
                   return "Wallet: " + autoSafe(walletError)
                 }
               }

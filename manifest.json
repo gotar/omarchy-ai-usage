@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "gotar.ai-usage",
   "name": "AI Usage",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "gotar",
   "license": "MIT",
   "description": "Opencode Go, Codex/OpenAI (5h session + weekly windows side by side) and Local Qwen 3.8 with live tokens/sec, ctx usage & draft stats — with wallet balance (Zen credits) via a dedicated headless Chromium profile.",

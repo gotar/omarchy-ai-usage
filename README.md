@@ -8,8 +8,9 @@ Omarchy (Quickshell) bar widget that shows AI provider usage in one panel:
 - **Codex / OpenAI (ChatGPT Plus)** — 5h session + 7d weekly windows side by side, reset countdowns, credits block.
   Data comes from `ai-usagebar usage --json` (Codex OAuth). When the usage endpoint does not report a
   window (e.g. during limit rollbacks/rollouts) the panel says so explicitly instead of guessing.
-- **Wallet (Aktualne saldo)** — Opencode Zen credit balance fetched headlessly from the billing page via
-  a *dedicated* Chromium profile (never your default browser profile). One-time `--login` required.
+- **Wallet (Zen credits)** — Opencode Zen credit balance fetched headlessly from the billing page via
+  a *dedicated* Chromium profile (never your default browser profile), cached for the configured TTL.
+  One-time `--login` required; a failed refresh keeps the last known balance visible with the error.
 - **Local model (llama.cpp)** — running/stopped state with a start/stop toggle, live tokens/sec
   (gen/prompt/3s window), context-window usage, and EAGLE draft-accept rate from the llama.cpp server.
 

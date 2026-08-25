@@ -9,6 +9,7 @@
 #   opencode-balance                # JSON from cache if fresh (TTL), else headless fetch
 #   opencode-balance --refresh      # force headless fetch (ignore cache)
 #   opencode-balance --login        # open headed Chromium in the dedicated profile & sign in
+#   opencode-balance --ttl N        # cache TTL seconds (overrides OPCODE_BALANCE_TTL)
 #   opencode-balance <workspaceID> [flags]
 #
 # Output (stdout, single JSON object):
@@ -25,14 +26,18 @@ set -uo pipefail
 
 WORKSPACE_ID="${OPCODE_BALANCE_WORKSPACE:-}"
 MODE="auto"
-for a in "$@"; do
-  case "$a" in
+TTL_ARG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --login) MODE="login" ;;
     --refresh) MODE="refresh" ;;
-    -h|--help) sed -n '1,30p' "$0"; exit 0 ;;
-    wrk_*) WORKSPACE_ID="$a" ;;
-    *) echo "{\"error\":\"unknown arg: $a\"}" >&2; exit 2 ;;
+    --ttl) shift; TTL_ARG="${1:-}" ;;
+    --ttl=*) TTL_ARG="${1#--ttl=}" ;;
+    -h|--help) sed -n '1,32p' "$0"; exit 0 ;;
+    wrk_*) WORKSPACE_ID="$1" ;;
+    *) echo "{\"error\":\"unknown arg: $1\"}" >&2; exit 2 ;;
   esac
+  shift
 done
 WORKSPACE_ID="${OPCODE_BALANCE_WORKSPACE:-$WORKSPACE_ID}"
 
@@ -40,7 +45,10 @@ URL="https://opencode.ai/workspace/${WORKSPACE_ID}/billing"
 HOME_DIR="${OPCODE_BALANCE_HOME:-$HOME/.config/opencode-balance}"
 PROFILE_DIR="${OPCODE_BALANCE_PROFILE:-$HOME_DIR/chromium-profile}"
 CACHE_FILE="$HOME_DIR/cache.json"
-TTL="${OPCODE_BALANCE_TTL:-600}"
+case "${TTL_ARG:-}" in
+  ''|*[!0-9]*) TTL="${OPCODE_BALANCE_TTL:-600}" ;;
+  *) TTL="$TTL_ARG" ;;
+esac
 NOW_EPOCH=$(date +%s)
 NOW_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -56,9 +64,12 @@ mkdir -p "$HOME_DIR"
 
 is_fresh_cache() {
   [ -f "$CACHE_FILE" ] || return 1
-  local ts
+  local ts ws
   ts=$(python3 -c "import json,sys;print(int(json.load(open(sys.argv[1])).get('fetchedEpoch',0)))" "$CACHE_FILE" 2>/dev/null) || return 1
-  [ -n "$ts" ] && [ $((NOW_EPOCH - ts)) -lt "$TTL" ]
+  [ -n "$ts" ] || return 1
+  [ $((NOW_EPOCH - ts)) -lt "$TTL" ] || return 1
+  ws=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('workspace',''))" "$CACHE_FILE" 2>/dev/null)
+  [ "$ws" = "$WORKSPACE_ID" ]
 }
 
 # ── 1) Dedicated-profile headless fetch (preferred: no visible tab, isolated session) ──
