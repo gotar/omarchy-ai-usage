@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "gotar.ai-usage",
   "name": "AI Usage",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "author": "gotar",
   "license": "MIT",
   "description": "Opencode Go, Codex/OpenAI (5h session + weekly windows side by side) and Local Qwen 3.8 with live tokens/sec, ctx usage & draft stats — with wallet balance (Zen credits) via a dedicated headless Chromium profile.",
@@ -24,8 +24,11 @@
       "opencodeBalanceTtlSec": 600,
       "refreshIntervalSec": 300,
       "showValue": true,
+      "localModel": "qwen",
       "localUnit": "llama-cpp-server.service",
-      "localHost": "127.0.0.1:8080"
+      "localHost": "127.0.0.1:8080",
+      "localUnitB": "bonsai-server.service",
+      "localHostB": "127.0.0.1:8082"
     },
     "schema": [
       {
@@ -46,7 +49,7 @@
         "key": "opencodeWorkspaceId",
         "type": "string",
         "label": "Opencode workspace ID (wallet)",
-        "description": "Workspace ID for the wallet fetch. Used as https://opencode.ai/workspace/<id>/billing. Uses a dedicated headless Chromium profile — run scripts/opencode-balance.sh --login once to sign in.",
+        "description": "Workspace ID for the wallet fetch. Used as https://opencode.ai/console/<id> and as the x-org-id header of GET /console/api/billing/status. Uses a dedicated headless Chromium profile — run scripts/opencode-balance.sh --login once to sign in.",
         "defaultValue": ""
       },
       {
@@ -76,18 +79,40 @@
         "defaultValue": true
       },
       {
+        "key": "localModel",
+        "type": "enum",
+        "label": "Active local model",
+        "options": ["qwen", "bonsai"],
+        "description": "Which local model slot the bar controls. Starting one stops the other.",
+        "defaultValue": "qwen"
+      },
+      {
         "key": "localUnit",
         "type": "string",
-        "label": "Local model systemd unit",
-        "description": "systemd --user unit for llama.cpp server. Default llama-cpp-server.service",
+        "label": "Qwen systemd unit",
+        "description": "systemd --user unit for the Qwen llama.cpp server. Default llama-cpp-server.service",
         "defaultValue": "llama-cpp-server.service"
       },
       {
         "key": "localHost",
         "type": "string",
-        "label": "Local model host",
-        "description": "Host:port for the llama.cpp server (display only).",
+        "label": "Qwen host",
+        "description": "Host:port for the Qwen llama.cpp server (display only).",
         "defaultValue": "127.0.0.1:8080"
+      },
+      {
+        "key": "localUnitB",
+        "type": "string",
+        "label": "Bonsai systemd unit",
+        "description": "systemd --user unit for the Bonsai llama.cpp server. Default bonsai-server.service",
+        "defaultValue": "bonsai-server.service"
+      },
+      {
+        "key": "localHostB",
+        "type": "string",
+        "label": "Bonsai host",
+        "description": "Host:port for the Bonsai llama.cpp server (display only).",
+        "defaultValue": "127.0.0.1:8082"
       }
     ]
   }

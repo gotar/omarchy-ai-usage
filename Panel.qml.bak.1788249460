@@ -35,27 +35,11 @@ Panel {
     if (["false","0","no","off"].indexOf(s) >= 0) return false
     return true
   }
-  // Local model selector: "qwen" (slot A) or "bonsai" (slot B). The legacy
-  // single localUnit/localHost settings keep working as slot A.
-  readonly property string localModel: {
-    var v = String(setting("localModel", "qwen") || "").trim().toLowerCase()
-    return v === "bonsai" ? "bonsai" : "qwen"
-  }
-  readonly property string localUnitA: {
+  readonly property string localUnit: {
     var v = String(setting("localUnit", "llama-cpp-server.service") || "").trim()
     return v !== "" ? v : "llama-cpp-server.service"
   }
-  readonly property string localHostA: String(setting("localHost", "127.0.0.1:8080") || "").trim() || "127.0.0.1:8080"
-  readonly property string localUnitB: {
-    var v = String(setting("localUnitB", "bonsai-server.service") || "").trim()
-    return v !== "" ? v : "bonsai-server.service"
-  }
-  readonly property string localHostB: String(setting("localHostB", "127.0.0.1:8082") || "").trim() || "127.0.0.1:8082"
-  readonly property bool localIsBonsai: localModel === "bonsai"
-  readonly property string localUnit: localIsBonsai ? localUnitB : localUnitA
-  readonly property string localHost: localIsBonsai ? localHostB : localHostA
-  readonly property string otherUnit: localIsBonsai ? localUnitA : localUnitB
-  readonly property string localShort: localIsBonsai ? "Bonsai" : "Qwen"
+  readonly property string localHost: String(setting("localHost", "127.0.0.1:8080") || "").trim() || "127.0.0.1:8080"
 
   property var opencodeWindows: null
   property string opencodeError: ""
@@ -82,7 +66,7 @@ Panel {
 
   property var serviceState: null
   property int serviceQueryAttempts: 0
-  readonly property string localModelName: localIsBonsai ? "Ternary-Bonsai-2-27B-PTQ1_0-mtp" : "Qwen3.8-27B-UD-Q4_K_M"
+  property string localModelName: "Qwen3.8-27B-UD-Q4_K_M"
   property var qwenStats: null
   property string qwenStatsRaw: ""
   property bool qwenStatsBusy: false
@@ -98,11 +82,8 @@ Panel {
 
   property string editApiKey: ""
   property string editEndpoint: ""
-  property string editLocalModel: "qwen"
   property string editLocalUnit: ""
   property string editLocalHost: ""
-  property string editLocalUnitB: ""
-  property string editLocalHostB: ""
   property string editWorkspaceId: ""
   property int editBalanceTtl: 600
   property bool editShowValue: true
@@ -188,8 +169,8 @@ Panel {
     return parts.join(" · ") || "AI usage"
   }
   function qwenBarSuffix() {
-    if (!serviceState || !serviceState.active) return localShort + " ○"
-    if (!qwenStats) return localShort + " ●"
+    if (!serviceState || !serviceState.active) return "Qwen ○"
+    if (!qwenStats) return "Qwen ●"
     var t = null
     if (qwenStats.processing) {
       if (qwenStats.live_tps) t = qwenStats.live_tps
@@ -198,12 +179,8 @@ Panel {
       if (qwenStats.gen_tps) t = qwenStats.gen_tps
       else if (qwenStats.live_tps) t = qwenStats.live_tps
     }
-    var base = ""
-    if (t) base = localShort + " " + Number(t).toFixed(1) + " t/s"
-    else base = qwenStats.processing ? localShort + " ●…" : localShort + " ●"
-    if (qwenStats.processing && qwenStats.task_duration_str) base += " · " + qwenStats.task_duration_str
-    else if (qwenStats.processing && qwenStats.queue_deferred > 0) base += " · ↯" + qwenStats.queue_deferred
-    return base
+    if (t) return "Qwen " + Number(t).toFixed(1) + " t/s"
+    return qwenStats.processing ? "Qwen ●…" : "Qwen ●"
   }
   function barText() {
     if (vertical) return alarming ? "󰅙" : "󰚩"
@@ -244,12 +221,7 @@ Panel {
         if (tps) extra.push(Number(tps).toFixed(1) + " t/s")
         if (ctx) extra.push(ctx)
         if (q.draft_accept) extra.push("draft " + Math.round(q.draft_accept*100) + "%")
-        if (q.processing && q.task_duration_str) extra.push(q.task_duration_str)
-        if (q.processing && q.n_decoded) extra.push(q.n_decoded + " tok" + (q.n_remain ? "/" + (q.n_decoded+q.n_remain) : ""))
-        if (q.queue_deferred > 0) extra.push("queue " + q.queue_deferred)
-        if (q.client_host) extra.push(q.client_host)
-        lines.push(localShort + " " + (q.processing ? "generating" : "idle") + (extra.length ? " · " + extra.join(" · ") : ""))
-        if (q.processing && q.prompt_preview) lines.push("\"" + q.prompt_preview.slice(0,80) + "\"")
+        lines.push("Qwen " + (q.processing ? "generating" : "idle") + (extra.length ? " · " + extra.join(" · ") : ""))
       } else lines.push("Local " + (serviceState.active ? "Running" : "Stopped"))
     }
     return autoSafe(lines.join(" · ") || "AI usage")
@@ -257,7 +229,7 @@ Panel {
   function refreshQwenStats() {
     if (qwenStatsProcess.running || !serviceState || !serviceState.active) return
     qwenStatsBusy = true
-    qwenStatsProcess.command = ["/bin/bash", scriptPath("scripts/qwen-stats.sh"), localHost, localUnit]
+    qwenStatsProcess.command = ["/bin/bash", scriptPath("scripts/qwen-stats.sh"), localHost]
     qwenStatsProcess.running = true
   }
   function parseQwenStats(text) {
@@ -444,22 +416,8 @@ Panel {
     if (!serviceState) serviceState = { active: false, busy: false, stateText: "Stopped" }
     if (serviceState.busy || serviceState.active === targetActive) return
     serviceState = { active: targetActive, busy: true, stateText: targetActive ? "Starting…" : "Stopping…" }
-    // Mutually exclusive slots: starting one model stops the other so two
-    // 27B residents never fight over 24 GB of VRAM.
-    if (targetActive && otherUnit !== "" && otherUnit !== localUnit) {
-      otherStopProcess.command = ["systemctl", "--user", "stop", otherUnit]
-      otherStopProcess.running = true
-    }
     serviceProcess.command = ["systemctl", "--user", targetActive ? "start" : "stop", localUnit]
     serviceProcess.running = true
-  }
-  function selectLocalModel(m) {
-    var want = m === "bonsai" ? "bonsai" : "qwen"
-    if (want === localModel) return
-    persistWidgetSettings({ localModel: want })
-    serviceState = null
-    qwenStats = null
-    Qt.callLater(startRefresh)
   }
   function localStart() { if (!serviceState) syncServiceFromRecord(); if (serviceState && !serviceState.active) serviceSet(true) }
   function localStop() { if (!serviceState) syncServiceFromRecord(); if (serviceState && serviceState.active) serviceSet(false) }
@@ -467,11 +425,8 @@ Panel {
   function openSettings() {
     editApiKey = ""; dirtyApiKey = false
     editEndpoint = opencodeEndpoint
-    editLocalModel = localModel
-    editLocalUnit = localUnitA
-    editLocalHost = localHostA
-    editLocalUnitB = localUnitB
-    editLocalHostB = localHostB
+    editLocalUnit = localUnit
+    editLocalHost = localHost
     editWorkspaceId = opencodeWorkspaceId
     editBalanceTtl = opencodeBalanceTtlSec
     editShowValue = showValue
@@ -484,11 +439,8 @@ Panel {
     var patches = {}
     if (dirtyApiKey) patches.opencodeApiKey = editApiKey
     patches.opencodeEndpoint = editEndpoint.trim() !== "" ? editEndpoint.trim() : "https://opencode.ai/zen/go/v1/usage"
-    patches.localModel = editLocalModel === "bonsai" ? "bonsai" : "qwen"
     patches.localUnit = editLocalUnit.trim() !== "" ? editLocalUnit.trim() : "llama-cpp-server.service"
     patches.localHost = editLocalHost.trim() !== "" ? editLocalHost.trim() : "127.0.0.1:8080"
-    patches.localUnitB = editLocalUnitB.trim() !== "" ? editLocalUnitB.trim() : "bonsai-server.service"
-    patches.localHostB = editLocalHostB.trim() !== "" ? editLocalHostB.trim() : "127.0.0.1:8082"
     patches.opencodeWorkspaceId = editWorkspaceId.trim() !== "" ? editWorkspaceId.trim() : ""
     patches.opencodeBalanceTtlSec = Math.max(60, Math.min(86400, Number(editBalanceTtl) || 600))
     patches.showValue = editShowValue === true
@@ -545,10 +497,6 @@ Panel {
     id: serviceProcess
     running: false
     onExited: function(c){ serviceQueryAttempts = 1; serviceQueryProcess.command = ["systemctl","--user","is-active", localUnit]; serviceQueryProcess.running = true }
-  }
-  Process {
-    id: otherStopProcess
-    running: false
   }
   Process {
     id: serviceQueryProcess
@@ -611,7 +559,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(420))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(960))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(860))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -662,7 +610,7 @@ Panel {
             spacing: Style.space(12)
             PanelSectionHeader { text: "OPENCODE GO"; foreground: root.foreground; fontFamily: root.fontFamily }
             Text { width: parent.width; text: "API key is sent as Bearer to the JSON endpoint. Leave blank to fall back to ai-usagebar's opencode-go config (~/.config/ai-usagebar/config.toml). Endpoint is polled with curl every refresh."; color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap }
-            Text { width: parent.width; text: "Wallet (Zen credits) is not on the Go API; read from the console JSON API (GET /console/api/billing/status, header x-org-id) using a DEDICATED Chromium profile (never your default browser profile, so Google cookies are untouched; headless, no visible tab, cached " + root.opencodeBalanceTtlSec + "s). First time / after session expiry: run `opencode-balance --login` once to sign in."; color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap; font.italic: true }
+            Text { width: parent.width; text: "Wallet (Zen credits) is NOT on the Go API; fetched headlessly from the billing page using a DEDICATED Chromium profile (never your default browser profile, so Google cookies are untouched; chromium --headless --dump-dom, no visible tab, cached " + root.opencodeBalanceTtlSec + "s). First time: run `opencode-balance --login` once to sign in. Feature request: github.com/anomalyco/opencode/issues/44189."; color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap; font.italic: true }
             Column { width: parent.width; spacing: Style.space(6)
               Text { text: "API key"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
               TextField {
@@ -702,41 +650,12 @@ Panel {
             PanelSeparator { width: parent.width; foreground: root.foreground }
             PanelSectionHeader { text: "LOCAL MODEL"; foreground: root.foreground; fontFamily: root.fontFamily }
             Column { width: parent.width; spacing: Style.space(6)
-              Text { text: "Active model"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
-              Row { width: parent.width; spacing: Style.space(8)
-                Button {
-                  width: (parent.width - parent.spacing) / 2
-                  text: "Qwen 3.8"
-                  bordered: root.editLocalModel === "qwen"
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                  onClicked: root.editLocalModel = "qwen"
-                }
-                Button {
-                  width: (parent.width - parent.spacing) / 2
-                  text: "Bonsai 2"
-                  bordered: root.editLocalModel === "bonsai"
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                  onClicked: root.editLocalModel = "bonsai"
-                }
-              }
-            }
-            Column { width: parent.width; spacing: Style.space(6)
-              Text { text: "Qwen systemd unit"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
+              Text { text: "systemd unit"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
               TextField { width: parent.width; text: root.editLocalUnit; foreground: root.foreground; placeholderText: "llama-cpp-server.service"; onTextEdited: root.editLocalUnit = text; onAccepted: root.saveSettings() }
             }
             Column { width: parent.width; spacing: Style.space(6)
-              Text { text: "Qwen host (display)"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
+              Text { text: "Host (display)"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
               TextField { width: parent.width; text: root.editLocalHost; foreground: root.foreground; placeholderText: "127.0.0.1:8080"; onTextEdited: root.editLocalHost = text; onAccepted: root.saveSettings() }
-            }
-            Column { width: parent.width; spacing: Style.space(6)
-              Text { text: "Bonsai systemd unit"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
-              TextField { width: parent.width; text: root.editLocalUnitB; foreground: root.foreground; placeholderText: "bonsai-server.service"; onTextEdited: root.editLocalUnitB = text; onAccepted: root.saveSettings() }
-            }
-            Column { width: parent.width; spacing: Style.space(6)
-              Text { text: "Bonsai host (display)"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
-              TextField { width: parent.width; text: root.editLocalHostB; foreground: root.foreground; placeholderText: "127.0.0.1:8082"; onTextEdited: root.editLocalHostB = text; onAccepted: root.saveSettings() }
             }
             PanelSeparator { width: parent.width; foreground: root.foreground }
             PanelSectionHeader { text: "DISPLAY"; foreground: root.foreground; fontFamily: root.fontFamily }
@@ -897,27 +816,7 @@ Panel {
               width: parent.width
               spacing: Style.space(6)
               PanelSeparator { width: parent.width; foreground: root.foreground }
-              PanelSectionHeader { text: root.localIsBonsai ? "LOCAL BONSAI 2" : "LOCAL QWEN 3.8"; foreground: root.foreground; fontFamily: root.fontFamily }
-              Row {
-                width: parent.width
-                spacing: Style.space(8)
-                Button {
-                  width: (parent.width - parent.spacing) / 2
-                  text: "Qwen 3.8"
-                  bordered: !root.localIsBonsai
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                  onClicked: root.selectLocalModel("qwen")
-                }
-                Button {
-                  width: (parent.width - parent.spacing) / 2
-                  text: "Bonsai 2"
-                  bordered: root.localIsBonsai
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                  onClicked: root.selectLocalModel("bonsai")
-                }
-              }
+              PanelSectionHeader { text: "LOCAL QWEN 3.8"; foreground: root.foreground; fontFamily: root.fontFamily }
               Row {
                 width: parent.width
                 spacing: Style.space(8)
@@ -937,7 +836,7 @@ Panel {
                   onToggled: root.localToggle()
                 }
               }
-              // — Local model live stats (tokens/sec, ctx, draft) —
+              // — Qwen 3.8 live stats (tokens/sec, ctx, draft) —
               Column {
                 visible: serviceState && serviceState.active === true
                 width: parent.width
@@ -1013,44 +912,6 @@ Panel {
                       text: qwenStats && qwenStats.draft_accept !== null ? "draft accept " + Math.round(qwenStats.draft_accept*100) + "%" : ""
                       color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption
                     }
-                  }
-                }
-                // — Bieżące zadanie (czas, postęp, kolejka, klient, prompt) —
-                Column {
-                  visible: qwenStats && qwenStats.processing
-                  width: parent.width
-                  spacing: 3
-                  Rectangle { width: parent.width; height: 1; color: root.alpha(root.foreground, 0.06) }
-                  Row {
-                    width: parent.width
-                    spacing: 6
-                    Text { text: "Zadanie #" + (qwenStats ? qwenStats.id_task : "—"); color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
-                    Text {
-                      width: parent.width - implicitWidth - parent.spacing
-                      horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
-                      text: qwenStats ? (qwenStats.task_duration_str ? "⏱ " + qwenStats.task_duration_str + " · " : "") + qwenStats.n_decoded + " tok" + (qwenStats.n_remain > 0 ? " / " + (qwenStats.n_decoded + qwenStats.n_remain) : "") : "—"
-                      color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption
-                    }
-                  }
-                  Text {
-                    width: parent.width
-                    visible: qwenStats && (qwenStats.queue_deferred > 0 || qwenStats.client_host)
-                    elide: Text.ElideRight
-                    text: {
-                      var parts = []
-                      if (qwenStats && qwenStats.client_host) parts.push(qwenStats.client_host + (qwenStats.client_ip !== qwenStats.client_host ? " (" + qwenStats.client_ip + ")" : "") + " · " + qwenStats.conn_count + "c" + (qwenStats.queue_deferred > 0 ? "" : ""))
-                      if (qwenStats && qwenStats.queue_deferred > 0) parts.push("Kolejka: " + qwenStats.queue_deferred)
-                      return parts.join(" · ")
-                    }
-                    color: qwenStats && qwenStats.queue_deferred > 3 ? root.urgent : root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.caption
-                  }
-                  Text {
-                    visible: qwenStats && qwenStats.prompt_preview && qwenStats.prompt_preview.length > 0
-                    width: parent.width
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    text: qwenStats ? "„" + qwenStats.prompt_preview.slice(0, 90) + "”" : ""
-                    color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.caption; font.italic: true
                   }
                 }
                 Text {
